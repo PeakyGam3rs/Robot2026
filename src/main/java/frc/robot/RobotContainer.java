@@ -5,11 +5,9 @@
 package frc.robot;
 
 import frc.robot.subsystems.LimelightSubsystem;
-import frc.robot.commands.Autos;
 import frc.robot.commands.CommandShoot;
 import frc.robot.commands.CommandStopShoot;
 import frc.robot.subsystems.BallFondlerSubsystem;
-import frc.robot.subsystems.HookerSubsystem;
 import frc.robot.subsystems.WheeeeelSubsystem;
 
 import com.pathplanner.lib.auto.NamedCommands;
@@ -19,91 +17,26 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OIConstants;
 import frc.robot.commands.CommandIntake;
-import frc.robot.commands.CommandMoveHook;
-import frc.robot.commands.CommandMoveHook.Direction;
+import frc.robot.commands.CommandOrbitGoal;
 import frc.robot.commands.CommandReverseIntake;
 
-/**
- * This class is where the bulk of the robot should be declared. Since
- * Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in
- * the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of
- * the robot (including
- * subsystems, commands, and trigger mappings) should be declared here.
- */
 public class RobotContainer {
-  // The robot's subsystems and commands are defined here...
   public final BallFondlerSubsystem ballFondlerSubsystem = new BallFondlerSubsystem();
-  public static final HookerSubsystem hookerSubsystem = new HookerSubsystem();
+  public final LimelightSubsystem limelightSubsystem = new LimelightSubsystem();
 
   public final CommandXboxController m_driverController = new CommandXboxController(
-      OIConstants.kDriverControllerPort); // kDriverControllerPort is int = 0
+      OIConstants.kDriverControllerPort);
+  public final CommandXboxController m_shooterController = new CommandXboxController(
+      OIConstants.kShootControllerPort);
 
   public WheeeeelSubsystem m_robotDrive;
 
-  public final CommandXboxController m_shooterController = new CommandXboxController(
-    OIConstants.kShootControllerPort);
-
-  
-
-
-    
-  /**
-   * The container for the robot. Contains subsystems, OI devices, and commands.
-   */
-
-  public void configureAutoCommands() {
-
-    /*
-     * Here are our auto commands if you want to creat another auto command to make
-     * your auto do stuff
-     * you first need to create another command which I have helpfully created a
-     * command folder for
-     * go into the command folder copy an existing command and paste it into a new
-     * file
-     * it should be self explanitory from there
-     * All our auto/command stuff is stolen from 3939
-     * https://github.com/frc-team3939/2024-RobotCode/blob/main/2024-RobotCode/src/
-     * main/java/frc/robot/RobotContainer.java
-     * 
-     */
-    // Intake Commands
-
-    // JOEL DID THE SPEED TO .5
-    /*
-     * NamedCommands.registerCommand("startIntake", new startIntake(slurper));
-     * //just the one above this tho
-     * NamedCommands.registerCommand("shoot", new shoot(buper, slurper));
-     * // NamedCommands.registerCommand("stopShooter", new shoot(buper, slurper,
-     * 0));
-     * NamedCommands.registerCommand("stopIntake", new stopIntake(slurper));
-     */
-
-  }
-
-  public final LimelightSubsystem limelightSubsystem = new LimelightSubsystem();
-
   public RobotContainer() {
-    // Configure the trigger bindings
-    configureAutoCommands();
-    System.out.println("RobotContainer");
-
-    // autoChooser = AutoBuilder.buildAutoChooser(auto);
-
-    // autoChooser = AutoBuilder.buildAutoChooser();
-    // SmartDashboard.putData(autoChooser);
-
     m_robotDrive = new WheeeeelSubsystem();
 
-    // configureButtonBindings();
-
     m_robotDrive.setDefaultCommand(
-        // The left stick controls translation of the robot.
-        // Turning is controlled by the X axis of the right stick.
         new RunCommand(
             () -> m_robotDrive.drive(
                 -MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband),
@@ -111,25 +44,14 @@ public class RobotContainer {
                 -MathUtil.applyDeadband(m_driverController.getRightX(), OIConstants.kDriveDeadband),
                 true, true),
             m_robotDrive));
+
     configureBindings();
+
     NamedCommands.registerCommand("shoot", new CommandShoot(ballFondlerSubsystem));
     NamedCommands.registerCommand("stopShoot", new CommandStopShoot(ballFondlerSubsystem));
     NamedCommands.registerCommand("intake", new CommandIntake(ballFondlerSubsystem));
-    
   }
 
-  /**
-   * Use this method to define your trigger->command mappings. Triggers can be
-   * created via the
-   * {@link Trigger#Trigger(java.util.function.BooleanSupplier)} constructor with
-   * an arbitrary
-   * predicate, or via the named factories in {@link
-   * edu.wpi.first.wpilibj2.command.button.CommandGenericHID}'s subclasses for
-   * {@link
-   * CommandXboxController
-   * Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller
-   * PS4} controllers
-   */
   private void configureBindings() {
     m_shooterController.rightBumper()
         .whileTrue(new CommandShoot(ballFondlerSubsystem));
@@ -139,26 +61,15 @@ public class RobotContainer {
 
     m_shooterController.a()
         .whileTrue(new CommandReverseIntake(ballFondlerSubsystem));
-    m_shooterController.b().whileTrue(new CommandMoveHook(hookerSubsystem, Direction.UP));
 
-    m_shooterController.x().whileTrue(new CommandMoveHook(hookerSubsystem, Direction.DOWN));
+    // Hold RB on driver controller: snap to orbit radius around goal, left X strafe along arc
+    m_driverController.rightBumper()
+        .whileTrue(new CommandOrbitGoal(
+            m_robotDrive,
+            () -> MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband)));
   }
 
-  /**
-   * Use this to pass the autonomous command to the main {@link Robot} class.
-   *
-   * @return the command to run in autonomous
-   */
   public Command getAutonomousCommand() {
-    // An example command will be run in autonomous
-    //return Autos.exampleAuto(ballFondlerSubsystem);
-    return getAutoFondler();
-  }
-
-
-
-
-  public Command getAutoFondler() {
     return new PathPlannerAuto("AutoFondler");
   }
 }

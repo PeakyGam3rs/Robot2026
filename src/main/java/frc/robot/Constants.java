@@ -30,9 +30,16 @@ import edu.wpi.first.math.util.Units;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
-  public static final class HookConstants {
-    public static final int kHookMotorCanId = 19; 
+  public static final class ShooterConstants {
+    public static final double kTargetRPM      = 3000;  // TODO: tune for your shooting distance
+    public static final double kRPMTolerance   = 150;   // rpm — within this = "at speed"
+    public static final double kP              = 0.0002;
+    public static final double kI              = 0.0;
+    public static final double kD              = 0.0;
+    // Feed-forward: fraction of duty cycle needed per RPM (1 / free speed RPM)
+    public static final double kFF             = 1.0 / NeoMotorConstants.kFreeSpeedRpm;
   }
+
   public static final class DriveConstants {
     // Driving Parameters - Note that these are not the maximum capable speeds of
     // the robot, rather the allowed maximum speeds

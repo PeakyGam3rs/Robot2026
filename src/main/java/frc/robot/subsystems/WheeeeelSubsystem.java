@@ -9,15 +9,19 @@ import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.auto.AutoBuilder;
 
+import edu.wpi.first.math.MatBuilder;
+import edu.wpi.first.math.Nat;
+import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.util.WPIUtilJNI;
+import frc.robot.LimelightHelpers;
 import edu.wpi.first.wpilibj.DriverStation;
 import frc.robot.Constants.DriveConstants;
 import frc.utils.WheeeeelUtils;
@@ -61,17 +65,17 @@ public class WheeeeelSubsystem extends SubsystemBase {
   private SlewRateLimiter m_rotLimiter = new SlewRateLimiter(DriveConstants.kRotationalSlewRate);
   private double m_prevTime = WPIUtilJNI.now() * 1e-6;
 
-  // Odometry class for tracking robot pose
-  SwerveDriveOdometry m_odometry = new SwerveDriveOdometry(
+  // Pose estimator (supports vision updates via addVisionMeasurement)
+  SwerveDrivePoseEstimator m_odometry = new SwerveDrivePoseEstimator(
       DriveConstants.kDriveKinematics,
       m_gyro.getRotation2d(),
-      //Rotation2d.fromDegrees(m_gyro.getAngle(IMUAxis.kZ)),
       new SwerveModulePosition[] {
           m_frontLeft.getPosition(),
           m_frontRight.getPosition(),
           m_rearLeft.getPosition(),
           m_rearRight.getPosition()
-      });
+      },
+      new Pose2d());
 
 
   /** Creates a new WheeeeelSubsystem. */
@@ -141,6 +145,21 @@ public void driveRobotRelative(ChassisSpeeds speeds) {
             m_rearRight.getPosition()
         });
 
+    // Feed current heading to Limelight so MegaTag2 knows robot orientation
+    LimelightHelpers.SetRobotOrientation("limelight",
+        m_odometry.getEstimatedPosition().getRotation().getDegrees(),
+        0, 0, 0, 0, 0);
+
+    // Add MegaTag2 vision measurement if valid
+    LimelightHelpers.PoseEstimate mt2 =
+        LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
+    if (mt2 != null && mt2.tagCount > 0 && Math.abs(m_gyro.getRate()) < 720) {
+      m_odometry.addVisionMeasurement(
+          mt2.pose,
+          mt2.timestampSeconds,
+          VecBuilder.fill(0.7, 0.7, 9999999)); // trust x/y, ignore yaw (NavX handles that)
+    }
+
     System.out.println("Front Left Module");
     m_frontLeft.getPositionTurning();
     m_frontLeft.getVelocityDrive();
@@ -152,7 +171,7 @@ public void driveRobotRelative(ChassisSpeeds speeds) {
    * @return The pose.
    */
   public Pose2d getPose() {
-    return m_odometry.getPoseMeters();
+    return m_odometry.getEstimatedPosition();
   }
 
   /**

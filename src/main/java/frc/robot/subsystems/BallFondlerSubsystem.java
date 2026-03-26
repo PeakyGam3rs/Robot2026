@@ -1,21 +1,39 @@
 package frc.robot.subsystems;
 
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
+import com.revrobotics.spark.FeedbackSensor;
+import com.revrobotics.spark.SparkBase.ControlType;
+import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkMaxConfig;
 
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.DriveConstants;
+import frc.robot.Constants.ShooterConstants;
 
 public class BallFondlerSubsystem extends SubsystemBase {
 
   private final SparkMax shootingMotor;
   private final SparkMax intakeMotor;
   private final SparkMax loadingMotor;
+  private final SparkClosedLoopController shootingController;
 
   public BallFondlerSubsystem() {
-    intakeMotor = new SparkMax(DriveConstants.kIntakeMotorCanId, MotorType.kBrushless);
-    loadingMotor = new SparkMax(DriveConstants.kLoadingMotorCanId, MotorType.kBrushless);
+    intakeMotor   = new SparkMax(DriveConstants.kIntakeMotorCanId,   MotorType.kBrushless);
+    loadingMotor  = new SparkMax(DriveConstants.kLoadingMotorCanId,  MotorType.kBrushless);
     shootingMotor = new SparkMax(DriveConstants.kShootingMotorCanId, MotorType.kBrushless);
+
+    shootingController = shootingMotor.getClosedLoopController();
+
+    SparkMaxConfig shooterConfig = new SparkMaxConfig();
+    shooterConfig.closedLoop
+        .feedbackSensor(FeedbackSensor.kPrimaryEncoder)
+        .pid(ShooterConstants.kP, ShooterConstants.kI, ShooterConstants.kD)
+        .velocityFF(ShooterConstants.kFF)
+        .outputRange(-1, 1);
+    shootingMotor.configure(shooterConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
     stopAll();
   }
@@ -23,52 +41,45 @@ public class BallFondlerSubsystem extends SubsystemBase {
   // ===== SHOOTER =====
 
   public void shooterOn() {
-    System.out.println("Shooter ON");
-    shootingMotor.set(1.0);
+    shootingController.setSetpoint(ShooterConstants.kTargetRPM, ControlType.kVelocity);
   }
 
   public void shooterOff() {
-    System.out.println("Shooter OFF");
-    shootingMotor.set(0.0);
+    shootingController.setSetpoint(0, ControlType.kVelocity);
+  }
+
+  public boolean isShooterAtSpeed() {
+    return Math.abs(shootingMotor.getEncoder().getVelocity() - ShooterConstants.kTargetRPM)
+        < ShooterConstants.kRPMTolerance;
   }
 
   // ===== INTAKE =====
 
   public void intakeForward() {
-    System.out.println("Intake Forward");
     intakeMotor.set(1);
     loadingMotor.set(1);
   }
 
   public void intakeReverse() {
-    System.out.println("Intake Reverse");
-    shootingMotor.set(-1);
     intakeMotor.set(-1);
     loadingMotor.set(-1);
   }
 
   // ===== SHOOT FEED =====
-
+  // Runs shooter to target RPM; loadingMotor runs in reverse because it feeds
+  // toward the shooter from the opposite side.
   public void shootFeed() {
-    System.out.println("Shoot Feed");
-    shootingMotor.set(1.0);
-    
+    shootingController.setSetpoint(ShooterConstants.kTargetRPM, ControlType.kVelocity);
     loadingMotor.set(-1);
     intakeMotor.set(1);
   }
 
   // ===== STOP =====
 
-  public void stopIntake() {
-    shootingMotor.set(0.0);
-    intakeMotor.set(0.0);
-    loadingMotor.set(0.0);
-  }
-
   public void stopAll() {
+    shootingController.setSetpoint(0, ControlType.kVelocity);
     intakeMotor.set(0.0);
     loadingMotor.set(0.0);
-    shootingMotor.set(0.0);
   }
 
   public double getShootingMotorRPM() {
