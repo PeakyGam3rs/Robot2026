@@ -76,6 +76,12 @@ public class BallFondlerSubsystem extends SubsystemBase {
 
   // ===== STOP =====
 
+  // Stops only intake/loading motors — leaves shooter running if it was already on.
+  public void stopIntake() {
+    intakeMotor.set(0.0);
+    loadingMotor.set(0.0);
+  }
+
   public void stopAll() {
     shootingController.setSetpoint(0, ControlType.kVelocity);
     intakeMotor.set(0.0);
